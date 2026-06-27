@@ -1,0 +1,1873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Analysis Dashboard - S&P 500 Analytics</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-bg: #0a0e27;
+            --secondary-bg: #111d3b;
+            --tertiary-bg: #1a2847;
+            --accent-color: #00d4ff;
+            --accent-hover: #00f0ff;
+            --text-primary: #e4e8f0;
+            --text-secondary: #a0aac0;
+            --border-color: #2a3a57;
+            --success-color: #00ff88;
+            --danger-color: #ff4466;
+            --warning-color: #ffaa00;
+            --shadow: 0 8px 32px rgba(0, 212, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary-bg) 0%, var(--secondary-bg) 100%);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(90deg, #0a0e27 0%, #1a2847 100%);
+            border-bottom: 2px solid var(--accent-color);
+            padding: 1.5rem 2rem;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+
+        .header-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--accent-color);
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .file-upload-section {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            background: linear-gradient(135deg, var(--accent-color), #00f0ff);
+            color: #000;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .file-input-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .file-name {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* KPI Cards Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: linear-gradient(135deg, var(--secondary-bg), var(--tertiary-bg));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card:hover {
+            border-color: var(--accent-color);
+            transform: translateY(-5px);
+            box-shadow: 0 12px 48px rgba(0, 212, 255, 0.2);
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .kpi-card:hover::before {
+            left: 100%;
+        }
+
+        .kpi-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .kpi-change {
+            font-size: 0.8rem;
+            color: var(--success-color);
+        }
+
+        .kpi-change.negative {
+            color: var(--danger-color);
+        }
+
+        /* Controls Section */
+        .controls-section {
+            background: linear-gradient(135deg, var(--secondary-bg), var(--tertiary-bg));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-box, .filter-select, .sort-select {
+            background: var(--primary-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.7rem 1rem;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            min-width: 180px;
+        }
+
+        .search-box:focus, .filter-select:focus, .sort-select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn {
+            padding: 0.7rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-color), #00f0ff);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--tertiary-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-container {
+            background: linear-gradient(135deg, var(--secondary-bg), var(--tertiary-bg));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent-color);
+            margin-bottom: 1rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .plotly-responsive {
+            width: 100% !important;
+        }
+
+        /* Table Styles */
+        .table-container {
+            background: linear-gradient(135deg, var(--secondary-bg), var(--tertiary-bg));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            overflow-x: auto;
+        }
+
+        .table-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--accent-color);
+            margin-bottom: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: var(--tertiary-bg);
+            color: var(--accent-color);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--accent-color);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 0.8rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        tr:hover {
+            background: var(--tertiary-bg);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .positive {
+            color: var(--success-color);
+        }
+
+        .negative {
+            color: var(--danger-color);
+        }
+
+        /* Loading spinner */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--accent-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .header-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .file-upload-section {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .controls-section {
+                flex-direction: column;
+            }
+
+            .search-box, .filter-select, .sort-select {
+                width: 100%;
+            }
+        }
+
+        /* Alert section */
+        .risk-alert-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .risk-alert-card {
+            background: linear-gradient(135deg, rgba(255, 68, 102, 0.1), rgba(255, 170, 0, 0.05));
+            border-left: 4px solid var(--danger-color);
+            border-radius: 8px;
+            padding: 1rem;
+            color: var(--text-primary);
+        }
+
+        .risk-alert-title {
+            font-weight: 600;
+            color: var(--danger-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 0.8rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-weight: 600;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+            margin-bottom: -1px;
+        }
+
+        .tab.active {
+            color: var(--accent-color);
+            border-bottom-color: var(--accent-color);
+        }
+
+        .tab:hover {
+            color: var(--accent-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Modal for company details */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, var(--secondary-bg), var(--tertiary-bg));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .close-modal:hover {
+            color: var(--accent-color);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <div class="header-title">
+                📊 Financial Analysis Dashboard
+            </div>
+            <div class="file-upload-section">
+                <div class="file-input-wrapper">
+                    <input type="file" id="fileInput" accept=".xlsx,.csv,.xls" />
+                    <label for="fileInput" class="file-input-label">📁 Upload File</label>
+                </div>
+                <div class="file-name" id="fileName">No file selected</div>
+                <button class="btn btn-secondary" id="exportBtn" style="display: none;">📥 Export PDF</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Loading Indicator -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing data...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState">
+            <div class="empty-state-icon">📂</div>
+            <h2>Upload a CSV or Excel file to get started</h2>
+            <p>Supported formats: .csv, .xlsx, .xls</p>
+        </div>
+
+        <!-- Dashboard Content -->
+        <div id="dashboardContent" style="display: none;">
+            <!-- KPI Cards -->
+            <div class="kpi-grid" id="kpiGrid">
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Market Cap</div>
+                    <div class="kpi-value" id="totalMarketCap">$0T</div>
+                    <div class="kpi-change" id="marketCapChange">+0%</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Avg P/E Ratio</div>
+                    <div class="kpi-value" id="avgPE">0.0x</div>
+                    <div class="kpi-change" id="peChange">Neutral</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Avg ROE</div>
+                    <div class="kpi-value" id="avgROE">0.0%</div>
+                    <div class="kpi-change" id="roeChange">Average</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Avg Revenue Growth</div>
+                    <div class="kpi-value" id="avgRevGrowth">0.0%</div>
+                    <div class="kpi-change" id="revGrowthChange">+0%</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Companies</div>
+                    <div class="kpi-value" id="totalCompanies">0</div>
+                    <div class="kpi-change" id="companiesChange">Listed</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Avg Dividend Yield</div>
+                    <div class="kpi-value" id="avgDividend">0.0%</div>
+                    <div class="kpi-change" id="dividendChange">Annual</div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls-section">
+                <input type="text" id="searchBox" class="search-box" placeholder="🔍 Search by ticker...">
+                <select id="marketCapFilter" class="filter-select">
+                    <option value="">All Market Caps</option>
+                    <option value="mega">Mega Cap (>200B)</option>
+                    <option value="large">Large Cap (20B-200B)</option>
+                    <option value="mid">Mid Cap (2B-20B)</option>
+                    <option value="small">Small Cap (<2B)</option>
+                </select>
+                <select id="sortSelect" class="sort-select">
+                    <option value="marketCap">Sort by Market Cap (Desc)</option>
+                    <option value="pe">P/E Ratio (Asc)</option>
+                    <option value="roe">ROE (Desc)</option>
+                    <option value="dividend">Dividend Yield (Desc)</option>
+                    <option value="growth">Revenue Growth (Desc)</option>
+                </select>
+                <button class="btn btn-primary" id="topGainersBtn">📈 Top Gainers</button>
+                <button class="btn btn-primary" id="topLosersBtn">📉 Top Losers</button>
+            </div>
+
+            <!-- Tabs for different chart sections -->
+            <div class="tabs">
+                <button class="tab active" data-tab="valuation">💰 Valuation</button>
+                <button class="tab" data-tab="profitability">💵 Profitability</button>
+                <button class="tab" data-tab="growth">📈 Growth</button>
+                <button class="tab" data-tab="risk">⚠️ Risk & Technicals</button>
+                <button class="tab" data-tab="trading">📊 Trading Activity</button>
+            </div>
+
+            <!-- Valuation Charts -->
+            <div id="valuation" class="tab-content active">
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <div class="chart-title">Market Cap by Company (Top 20)</div>
+                        <div id="marketCapChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">P/E Ratio Distribution</div>
+                        <div id="peRatioChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Price-to-Book Comparison</div>
+                        <div id="pbRatioChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">PEG Ratio Distribution</div>
+                        <div id="pegRatioChart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profitability Charts -->
+            <div id="profitability" class="tab-content">
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <div class="chart-title">ROE vs ROA</div>
+                        <div id="roeVsRoaChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Profit Margins Distribution</div>
+                        <div id="marginChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Net Profit Margin by Company (Top 20)</div>
+                        <div id="netMarginChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Operating Margin Analysis</div>
+                        <div id="operatingMarginChart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Growth Charts -->
+            <div id="growth" class="tab-content">
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <div class="chart-title">EPS Growth Distribution</div>
+                        <div id="epsGrowthChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Revenue Growth vs Earnings Growth</div>
+                        <div id="revenueEarningsChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">5-Year Revenue Growth Distribution</div>
+                        <div id="fiveYearRevenueChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Long-term Growth Estimates</div>
+                        <div id="ltgrowthChart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk & Technical Charts -->
+            <div id="risk" class="tab-content">
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <div class="chart-title">Beta Distribution</div>
+                        <div id="betaChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">RSI Distribution</div>
+                        <div id="rsiChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Distance from 52-Week High</div>
+                        <div id="distanceHighChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Volatility Analysis</div>
+                        <div id="volatilityChart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trading Activity Charts -->
+            <div id="trading" class="tab-content">
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <div class="chart-title">Relative Volume Distribution</div>
+                        <div id="relativeVolumeChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Performance Today</div>
+                        <div id="performanceTodayChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Weekly Performance Distribution</div>
+                        <div id="weeklyPerformanceChart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Year Performance Distribution</div>
+                        <div id="yearPerformanceChart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top 10 Tables -->
+            <div class="table-container">
+                <div class="table-title">🏆 Top 10 Companies by Market Capitalization</div>
+                <table id="top10MarketCap">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Ticker</th>
+                            <th>Company</th>
+                            <th>Market Cap</th>
+                            <th>P/E Ratio</th>
+                            <th>ROE</th>
+                            <th>Dividend Yield</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="table-container">
+                <div class="table-title">💰 Top 10 by Return on Equity (ROE)</div>
+                <table id="top10ROE">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Ticker</th>
+                            <th>Company</th>
+                            <th>ROE</th>
+                            <th>ROA</th>
+                            <th>Net Margin</th>
+                            <th>Market Cap</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="table-container">
+                <div class="table-title">📈 Top 10 Revenue Growth</div>
+                <table id="top10Revenue">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Ticker</th>
+                            <th>Company</th>
+                            <th>Quarterly Revenue Growth</th>
+                            <th>5-Year Revenue Growth</th>
+                            <th>EPS Growth This Year</th>
+                            <th>Market Cap</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="table-container">
+                <div class="table-title">💎 Top 10 by Dividend Yield</div>
+                <table id="top10Dividend">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Ticker</th>
+                            <th>Company</th>
+                            <th>Dividend Yield</th>
+                            <th>Annual Dividend</th>
+                            <th>P/E Ratio</th>
+                            <th>Market Cap</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <!-- Risk Alerts Section -->
+            <div style="margin-top: 2rem;">
+                <h2 style="font-size: 1.3rem; margin-bottom: 1rem; color: var(--accent-color);">⚠️ Risk Alerts</h2>
+                <div class="risk-alert-section" id="riskAlerts"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // GLOBAL VARIABLES & STATE MANAGEMENT
+        // ============================================
+        let rawData = [];
+        let filteredData = [];
+        const dataCache = {};
+
+        // ============================================
+        // UTILITY FUNCTIONS
+        // ============================================
+
+        /**
+         * Parse percentage strings to numbers
+         * "12.5%" -> 12.5
+         */
+        function parsePercentage(value) {
+            if (!value || value === '-' || value === '') return null;
+            const num = parseFloat(String(value).replace('%', '').replace(',', ''));
+            return isNaN(num) ? null : num;
+        }
+
+        /**
+         * Parse numeric strings with commas and abbreviations
+         * "1.5B" -> 1500000000
+         * "123,456" -> 123456
+         */
+        function parseNumeric(value) {
+            if (!value || value === '-' || value === '') return null;
+            let str = String(value).replace(',', '');
+            
+            const multipliers = { 'B': 1e9, 'M': 1e6, 'K': 1e3, 'T': 1e12 };
+            const match = str.match(/([0-9.,]+)\s*([BMKT])?/);
+            
+            if (match) {
+                const num = parseFloat(match[1].replace(',', ''));
+                const suffix = match[2];
+                return suffix ? num * multipliers[suffix] : num;
+            }
+            return null;
+        }
+
+        /**
+         * Format numbers as readable strings
+         */
+        function formatValue(value, type = 'number') {
+            if (value === null || isNaN(value)) return '-';
+            
+            switch(type) {
+                case 'currency':
+                    if (value >= 1e9) return '$' + (value / 1e9).toFixed(1) + 'B';
+                    if (value >= 1e6) return '$' + (value / 1e6).toFixed(1) + 'M';
+                    return '$' + value.toFixed(0);
+                case 'percent':
+                    return value.toFixed(2) + '%';
+                case 'decimal':
+                    return value.toFixed(2);
+                default:
+                    return value.toFixed(0);
+            }
+        }
+
+        /**
+         * Normalize data types in the dataset
+         */
+        function normalizeData(companies) {
+            return companies.map(company => {
+                const normalized = { ...company };
+                
+                // Parse numeric fields
+                const numericFields = [
+                    'Market capitalization', 'Income (ttm)', 'Revenue (ttm)',
+                    'Book value per share (mrq)', 'Cash per share (mrq)',
+                    'Price-to-Earnings (ttm)', 'Forward Price-to-Earnings (next fiscal year)',
+                    'Price-to-Earnings-to-Growth', 'Price-to-Sales (ttm)',
+                    'Price-to-Book (mrq)', 'Price to cash per share (mrq)',
+                    'Price to Free Cash Flow (ttm)', 'Diluted EPS (ttm)',
+                    'EPS estimate for next year', 'EPS estimate for next quarter',
+                    'Return on Assets (ttm)', 'Return on Equity (ttm)',
+                    'Return on Investment (ttm)',
+                    'Shares outstanding', 'Average volume (3 month)', 'Volume',
+                    'Previous close', 'Current stock price', 'Beta'
+                ];
+                
+                numericFields.forEach(field => {
+                    if (normalized[field]) {
+                        normalized[field] = parseNumeric(normalized[field]);
+                    }
+                });
+                
+                // Parse percentage fields
+                const percentFields = [
+                    'Dividend yield (annual)', 'EPS growth this year', 'EPS growth next year',
+                    'Long term annual growth estimate (5 years)', 'Annual EPS growth past 5 years',
+                    'Annual sales growth past 5 years', 'Quarterly revenue growth (YoY)',
+                    'Quarterly earnings growth (YoY)', 'Gross Margin (ttm)',
+                    'Operating Margin (ttm)', 'Net Profit Margin (ttm)',
+                    'Dividend Payout Ratio (ttm)', 'Performance (Week)',
+                    'Performance (Month)', 'Performance (Quarter)', 'Performance (Half Year)',
+                    'Performance (Year)', 'Performance (Year To Date)', 'Performance (today)',
+                    'Distance from 20-Day Simple Moving Average',
+                    'Distance from 50-Day Simple Moving Average',
+                    'Distance from 200-Day Simple Moving Average',
+                    'Distance from 52-Week High', 'Distance from 52-Week Low'
+                ];
+                
+                percentFields.forEach(field => {
+                    if (normalized[field]) {
+                        normalized[field] = parsePercentage(normalized[field]);
+                    }
+                });
+                
+                // Parse ratio fields
+                const ratioFields = [
+                    'Quick Ratio (mrq)', 'Current Ratio (mrq)',
+                    'Total Debt to Equity (mrq)', 'Long Term Debt to Equity (mrq)',
+                    'Relative Strength Index', 'Relative volume'
+                ];
+                
+                ratioFields.forEach(field => {
+                    if (normalized[field]) {
+                        const parsed = parseNumeric(normalized[field]);
+                        normalized[field] = parsed;
+                    }
+                });
+                
+                return normalized;
+            });
+        }
+
+        // ============================================
+        // FILE UPLOAD & DATA PROCESSING
+        // ============================================
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('fileName').textContent = file.name;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const data = event.target.result;
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    rawData = normalizeData(jsonData);
+                    filteredData = [...rawData];
+
+                    document.getElementById('emptyState').style.display = 'none';
+                    document.getElementById('dashboardContent').style.display = 'block';
+                    document.getElementById('exportBtn').style.display = 'inline-flex';
+
+                    updateDashboard();
+                    setupEventListeners();
+                    document.getElementById('loading').classList.remove('active');
+                } catch (error) {
+                    console.error('Error processing file:', error);
+                    alert('Error processing file. Please ensure it\'s a valid Excel or CSV file.');
+                    document.getElementById('loading').classList.remove('active');
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+
+        // ============================================
+        // DASHBOARD UPDATE FUNCTIONS
+        // ============================================
+
+        /**
+         * Update all KPI cards
+         */
+        function updateKPIs() {
+            const data = filteredData;
+            
+            // Total Market Cap
+            const totalMarketCap = data.reduce((sum, d) => {
+                const cap = d['Market capitalization'];
+                return sum + (cap ? cap : 0);
+            }, 0);
+            document.getElementById('totalMarketCap').textContent = formatValue(totalMarketCap, 'currency');
+
+            // Average P/E
+            const peValues = data.filter(d => d['Price-to-Earnings (ttm)'] && d['Price-to-Earnings (ttm)'] > 0 && d['Price-to-Earnings (ttm)'] < 1000);
+            const avgPE = peValues.length > 0 ? peValues.reduce((sum, d) => sum + d['Price-to-Earnings (ttm)'], 0) / peValues.length : 0;
+            document.getElementById('avgPE').textContent = formatValue(avgPE, 'decimal') + 'x';
+            document.getElementById('peChange').textContent = avgPE < 20 ? '✓ Reasonable' : avgPE < 30 ? 'Fair' : '⚠️ High';
+
+            // Average ROE
+            const roeValues = data.filter(d => d['Return on Equity (ttm)']);
+            const avgROE = roeValues.length > 0 ? roeValues.reduce((sum, d) => sum + d['Return on Equity (ttm)'], 0) / roeValues.length : 0;
+            document.getElementById('avgROE').textContent = formatValue(avgROE, 'percent');
+            document.getElementById('roeChange').textContent = avgROE > 15 ? '✓ Strong' : avgROE > 10 ? 'Good' : 'Below Average';
+
+            // Average Revenue Growth
+            const revGrowth = data.filter(d => d['Annual sales growth past 5 years']);
+            const avgRevGrowth = revGrowth.length > 0 ? revGrowth.reduce((sum, d) => sum + d['Annual sales growth past 5 years'], 0) / revGrowth.length : 0;
+            document.getElementById('avgRevGrowth').textContent = formatValue(avgRevGrowth, 'percent');
+            document.getElementById('revGrowthChange').textContent = avgRevGrowth > 0 ? '+' + formatValue(avgRevGrowth, 'percent') : formatValue(avgRevGrowth, 'percent');
+
+            // Total Companies
+            document.getElementById('totalCompanies').textContent = data.length;
+
+            // Average Dividend Yield
+            const dividends = data.filter(d => d['Dividend yield (annual)']);
+            const avgDividend = dividends.length > 0 ? dividends.reduce((sum, d) => sum + d['Dividend yield (annual)'], 0) / dividends.length : 0;
+            document.getElementById('avgDividend').textContent = formatValue(avgDividend, 'percent');
+        }
+
+        /**
+         * Create market cap chart
+         */
+        function createMarketCapChart() {
+            const top20 = filteredData
+                .filter(d => d['Market capitalization'])
+                .sort((a, b) => b['Market capitalization'] - a['Market capitalization'])
+                .slice(0, 20);
+
+            const trace = {
+                x: top20.map(d => d['Market capitalization'] / 1e9),
+                y: top20.map(d => d.Company),
+                type: 'bar',
+                orientation: 'h',
+                marker: {
+                    color: top20.map((_, i) => `rgba(0, 212, 255, ${0.3 + (i / 40)})`),
+                },
+                text: top20.map(d => '$' + (d['Market capitalization'] / 1e9).toFixed(1) + 'B'),
+                textposition: 'outside'
+            };
+
+            const layout = {
+                margin: { l: 150, r: 100, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Market Cap (Billions USD)', gridcolor: '#2a3a57' },
+                yaxis: { autorange: 'reversed' }
+            };
+
+            Plotly.newPlot('marketCapChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create P/E Ratio chart
+         */
+        function createPEChart() {
+            const peData = filteredData
+                .filter(d => d['Price-to-Earnings (ttm)'] && d['Price-to-Earnings (ttm)'] > 0 && d['Price-to-Earnings (ttm)'] < 500)
+                .map(d => d['Price-to-Earnings (ttm)']);
+
+            const trace = {
+                x: peData,
+                type: 'histogram',
+                marker: { color: 'rgba(0, 212, 255, 0.7)' },
+                nbinsx: 30
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'P/E Ratio' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('peRatioChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create Price-to-Book chart
+         */
+        function createPBChart() {
+            const pbData = filteredData
+                .filter(d => d['Price-to-Book (mrq)'] && d['Price-to-Book (mrq)'] > 0 && d['Price-to-Book (mrq)'] < 100)
+                .map(d => d['Price-to-Book (mrq)']);
+
+            const trace = {
+                x: pbData,
+                type: 'histogram',
+                marker: { color: 'rgba(0, 255, 136, 0.7)' },
+                nbinsx: 30
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Price-to-Book Ratio' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('pbRatioChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create PEG Ratio chart
+         */
+        function createPEGChart() {
+            const pegData = filteredData
+                .filter(d => d['Price-to-Earnings-to-Growth'] && d['Price-to-Earnings-to-Growth'] > 0 && d['Price-to-Earnings-to-Growth'] < 50)
+                .map(d => d['Price-to-Earnings-to-Growth']);
+
+            const trace = {
+                x: pegData,
+                type: 'histogram',
+                marker: { color: 'rgba(255, 170, 0, 0.7)' },
+                nbinsx: 25
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'PEG Ratio' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('pegRatioChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create ROE vs ROA scatter plot
+         */
+        function createROEvsROAChart() {
+            const data = filteredData.filter(d => d['Return on Equity (ttm)'] && d['Return on Assets (ttm)']);
+
+            const trace = {
+                x: data.map(d => d['Return on Assets (ttm)']),
+                y: data.map(d => d['Return on Equity (ttm)']),
+                text: data.map(d => d.Company),
+                mode: 'markers',
+                type: 'scatter',
+                marker: {
+                    size: 8,
+                    color: data.map(d => d['Market capitalization'] / 1e9),
+                    colorscale: 'Viridis',
+                    showscale: true,
+                    colorbar: { title: 'Market Cap<br>(Billions)' }
+                }
+            };
+
+            const layout = {
+                margin: { l: 60, r: 100, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Return on Assets (%)' },
+                yaxis: { title: 'Return on Equity (%)' }
+            };
+
+            Plotly.newPlot('roeVsRoaChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create profit margins chart
+         */
+        function createMarginChart() {
+            const gmData = filteredData.filter(d => d['Gross Margin (ttm)'] && d['Gross Margin (ttm)'] !== null).map(d => d['Gross Margin (ttm)']);
+            const omData = filteredData.filter(d => d['Operating Margin (ttm)'] && d['Operating Margin (ttm)'] !== null).map(d => d['Operating Margin (ttm)']);
+            const nmData = filteredData.filter(d => d['Net Profit Margin (ttm)'] && d['Net Profit Margin (ttm)'] !== null).map(d => d['Net Profit Margin (ttm)']);
+
+            const traces = [
+                {
+                    x: gmData,
+                    name: 'Gross Margin',
+                    type: 'histogram',
+                    marker: { color: 'rgba(0, 212, 255, 0.6)' },
+                    nbinsx: 20,
+                    opacity: 0.7
+                },
+                {
+                    x: omData,
+                    name: 'Operating Margin',
+                    type: 'histogram',
+                    marker: { color: 'rgba(0, 255, 136, 0.6)' },
+                    nbinsx: 20,
+                    opacity: 0.7
+                },
+                {
+                    x: nmData,
+                    name: 'Net Profit Margin',
+                    type: 'histogram',
+                    marker: { color: 'rgba(255, 170, 0, 0.6)' },
+                    nbinsx: 20,
+                    opacity: 0.7
+                }
+            ];
+
+            const layout = {
+                barmode: 'overlay',
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Margin (%)' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('marginChart', traces, layout, { responsive: true });
+        }
+
+        /**
+         * Create net margin chart
+         */
+        function createNetMarginChart() {
+            const top20 = filteredData
+                .filter(d => d['Net Profit Margin (ttm)'] !== null)
+                .sort((a, b) => (b['Net Profit Margin (ttm)'] || 0) - (a['Net Profit Margin (ttm)'] || 0))
+                .slice(0, 20);
+
+            const trace = {
+                x: top20.map(d => d['Net Profit Margin (ttm)']),
+                y: top20.map(d => d.Company),
+                type: 'bar',
+                orientation: 'h',
+                marker: {
+                    color: top20.map(d => d['Net Profit Margin (ttm)'] > 0 ? 'rgba(0, 255, 136, 0.7)' : 'rgba(255, 68, 102, 0.7)')
+                },
+                text: top20.map(d => d['Net Profit Margin (ttm)'].toFixed(1) + '%'),
+                textposition: 'outside'
+            };
+
+            const layout = {
+                margin: { l: 150, r: 100, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Net Profit Margin (%)' }
+            };
+
+            Plotly.newPlot('netMarginChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create operating margin chart
+         */
+        function createOperatingMarginChart() {
+            const omData = filteredData.filter(d => d['Operating Margin (ttm)'] && d['Operating Margin (ttm)'] !== null).map(d => d['Operating Margin (ttm)']);
+
+            const trace = {
+                x: omData,
+                type: 'box',
+                name: 'Operating Margin',
+                marker: { color: 'rgba(0, 212, 255, 0.7)' }
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                yaxis: { title: 'Operating Margin (%)' },
+                showlegend: false
+            };
+
+            Plotly.newPlot('operatingMarginChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create EPS growth chart
+         */
+        function createEPSGrowthChart() {
+            const currentYearGrowth = filteredData.filter(d => d['EPS growth this year'] && d['EPS growth this year'] !== null).map(d => d['EPS growth this year']);
+            const nextYearGrowth = filteredData.filter(d => d['EPS growth next year'] && d['EPS growth next year'] !== null).map(d => d['EPS growth next year']);
+
+            const traces = [
+                {
+                    x: currentYearGrowth,
+                    name: 'This Year',
+                    type: 'histogram',
+                    marker: { color: 'rgba(0, 212, 255, 0.7)' },
+                    nbinsx: 25,
+                    opacity: 0.8
+                },
+                {
+                    x: nextYearGrowth,
+                    name: 'Next Year',
+                    type: 'histogram',
+                    marker: { color: 'rgba(0, 255, 136, 0.7)' },
+                    nbinsx: 25,
+                    opacity: 0.8
+                }
+            ];
+
+            const layout = {
+                barmode: 'overlay',
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'EPS Growth (%)' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('epsGrowthChart', traces, layout, { responsive: true });
+        }
+
+        /**
+         * Create revenue vs earnings growth chart
+         */
+        function createRevenueEarningsChart() {
+            const data = filteredData.filter(d => d['Annual sales growth past 5 years'] && d['EPS growth this year']);
+
+            const trace = {
+                x: data.map(d => d['Annual sales growth past 5 years']),
+                y: data.map(d => d['EPS growth this year']),
+                text: data.map(d => d.Company),
+                mode: 'markers',
+                type: 'scatter',
+                marker: {
+                    size: 8,
+                    color: 'rgba(0, 212, 255, 0.7)',
+                    line: { color: '#00d4ff', width: 1 }
+                }
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: '5-Year Revenue Growth (%)' },
+                yaxis: { title: 'EPS Growth This Year (%)' }
+            };
+
+            Plotly.newPlot('revenueEarningsChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create 5-year revenue growth chart
+         */
+        function createFiveYearRevenueChart() {
+            const data = filteredData.filter(d => d['Annual sales growth past 5 years'] && d['Annual sales growth past 5 years'] !== null).map(d => d['Annual sales growth past 5 years']);
+
+            const trace = {
+                x: data,
+                type: 'histogram',
+                marker: { color: 'rgba(0, 255, 136, 0.7)' },
+                nbinsx: 25
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: '5-Year Revenue Growth (%)' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('fiveYearRevenueChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create long-term growth chart
+         */
+        function createLTGrowthChart() {
+            const ltgrowth = filteredData.filter(d => d['Long term annual growth estimate (5 years)'] && d['Long term annual growth estimate (5 years)'] !== null).map(d => d['Long term annual growth estimate (5 years)']);
+
+            const trace = {
+                x: ltgrowth,
+                type: 'histogram',
+                marker: { color: 'rgba(255, 170, 0, 0.7)' },
+                nbinsx: 20
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Long-term Growth Estimate (%)' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('ltgrowthChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create beta distribution chart
+         */
+        function createBetaChart() {
+            const betaData = filteredData.filter(d => d['Beta'] && d['Beta'] > 0 && d['Beta'] < 5).map(d => d['Beta']);
+
+            const trace = {
+                x: betaData,
+                type: 'histogram',
+                marker: { color: 'rgba(255, 68, 102, 0.7)' },
+                nbinsx: 25
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Beta' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('betaChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create RSI distribution chart
+         */
+        function createRSIChart() {
+            const rsiData = filteredData.filter(d => d['Relative Strength Index'] && d['Relative Strength Index'] >= 0 && d['Relative Strength Index'] <= 100).map(d => d['Relative Strength Index']);
+
+            const trace = {
+                x: rsiData,
+                type: 'histogram',
+                marker: { color: 'rgba(0, 212, 255, 0.7)' },
+                nbinsx: 20
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'RSI' },
+                yaxis: { title: 'Frequency' },
+                shapes: [
+                    { type: 'line', x0: 30, x1: 30, y0: 0, y1: 1, yref: 'paper', line: { color: 'rgba(255, 68, 102, 0.5)', dash: 'dash' } },
+                    { type: 'line', x0: 70, x1: 70, y0: 0, y1: 1, yref: 'paper', line: { color: 'rgba(0, 255, 136, 0.5)', dash: 'dash' } }
+                ]
+            };
+
+            Plotly.newPlot('rsiChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create distance from 52-week high chart
+         */
+        function createDistanceHighChart() {
+            const distData = filteredData.filter(d => d['Distance from 52-Week High']).map(d => d['Distance from 52-Week High']);
+
+            const trace = {
+                x: distData,
+                type: 'histogram',
+                marker: { color: 'rgba(0, 255, 136, 0.7)' },
+                nbinsx: 25
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Distance from 52-Week High (%)' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('distanceHighChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create volatility chart
+         */
+        function createVolatilityChart() {
+            const volatilityData = filteredData
+                .filter(d => d['Volatility (Week, Month)'])
+                .map(d => {
+                    const vol = d['Volatility (Week, Month)'];
+                    return typeof vol === 'string' ? parseFloat(vol.split(' ')[0]) : vol;
+                })
+                .filter(v => v && !isNaN(v) && v > 0 && v < 100);
+
+            const trace = {
+                x: volatilityData,
+                type: 'histogram',
+                marker: { color: 'rgba(255, 170, 0, 0.7)' },
+                nbinsx: 25
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Volatility (%)' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('volatilityChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create relative volume chart
+         */
+        function createRelativeVolumeChart() {
+            const relVolData = filteredData.filter(d => d['Relative volume'] && d['Relative volume'] > 0 && d['Relative volume'] < 5).map(d => d['Relative volume']);
+
+            const trace = {
+                x: relVolData,
+                type: 'histogram',
+                marker: { color: 'rgba(0, 212, 255, 0.7)' },
+                nbinsx: 25
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Relative Volume' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('relativeVolumeChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create performance today chart
+         */
+        function createPerformanceTodayChart() {
+            const perfData = filteredData.filter(d => d['Performance (today)'] && d['Performance (today)'] !== null).map(d => d['Performance (today)']);
+
+            const trace = {
+                x: perfData,
+                type: 'histogram',
+                marker: {
+                    color: perfData.map(val => val >= 0 ? 'rgba(0, 255, 136, 0.7)' : 'rgba(255, 68, 102, 0.7)')
+                },
+                nbinsx: 30
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Performance Today (%)' },
+                yaxis: { title: 'Frequency' },
+                shapes: [
+                    { type: 'line', x0: 0, x1: 0, y0: 0, y1: 1, yref: 'paper', line: { color: '#e4e8f0', width: 2, dash: 'dash' } }
+                ]
+            };
+
+            Plotly.newPlot('performanceTodayChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create weekly performance chart
+         */
+        function createWeeklyPerformanceChart() {
+            const perfData = filteredData.filter(d => d['Performance (Week)'] && d['Performance (Week)'] !== null).map(d => d['Performance (Week)']);
+
+            const trace = {
+                x: perfData,
+                type: 'histogram',
+                marker: { color: 'rgba(0, 255, 136, 0.7)' },
+                nbinsx: 25
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Weekly Performance (%)' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('weeklyPerformanceChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create year performance chart
+         */
+        function createYearPerformanceChart() {
+            const perfData = filteredData.filter(d => d['Performance (Year)'] && d['Performance (Year)'] !== null).map(d => d['Performance (Year)']);
+
+            const trace = {
+                x: perfData,
+                type: 'histogram',
+                marker: { color: 'rgba(255, 170, 0, 0.7)' },
+                nbinsx: 30
+            };
+
+            const layout = {
+                margin: { l: 60, r: 40, t: 20, b: 50 },
+                plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+                paper_bgcolor: 'transparent',
+                font: { color: '#e4e8f0', family: 'Segoe UI' },
+                xaxis: { title: 'Year Performance (%)' },
+                yaxis: { title: 'Frequency' }
+            };
+
+            Plotly.newPlot('yearPerformanceChart', [trace], layout, { responsive: true });
+        }
+
+        /**
+         * Create Top 10 tables
+         */
+        function createTop10Tables() {
+            // Top 10 by Market Cap
+            const top10Cap = filteredData
+                .filter(d => d['Market capitalization'])
+                .sort((a, b) => b['Market capitalization'] - a['Market capitalization'])
+                .slice(0, 10);
+
+            let html = '';
+            top10Cap.forEach((company, index) => {
+                html += `<tr>
+                    <td>${index + 1}</td>
+                    <td><strong>${company.Company}</strong></td>
+                    <td>${company.Company}</td>
+                    <td>${formatValue(company['Market capitalization'], 'currency')}</td>
+                    <td>${company['Price-to-Earnings (ttm)'] ? company['Price-to-Earnings (ttm)'].toFixed(2) : '-'}</td>
+                    <td class="${company['Return on Equity (ttm)'] >= 15 ? 'positive' : 'negative'}">${company['Return on Equity (ttm)'] ? company['Return on Equity (ttm)'].toFixed(2) + '%' : '-'}</td>
+                    <td>${company['Dividend yield (annual)'] ? company['Dividend yield (annual)'].toFixed(2) + '%' : '-'}</td>
+                </tr>`;
+            });
+            document.querySelector('#top10MarketCap tbody').innerHTML = html;
+
+            // Top 10 by ROE
+            const top10ROE = filteredData
+                .filter(d => d['Return on Equity (ttm)'])
+                .sort((a, b) => (b['Return on Equity (ttm)'] || 0) - (a['Return on Equity (ttm)'] || 0))
+                .slice(0, 10);
+
+            html = '';
+            top10ROE.forEach((company, index) => {
+                html += `<tr>
+                    <td>${index + 1}</td>
+                    <td><strong>${company.Company}</strong></td>
+                    <td>${company.Company}</td>
+                    <td class="positive">${company['Return on Equity (ttm)'].toFixed(2)}%</td>
+                    <td>${company['Return on Assets (ttm)'] ? company['Return on Assets (ttm)'].toFixed(2) + '%' : '-'}</td>
+                    <td>${company['Net Profit Margin (ttm)'] ? company['Net Profit Margin (ttm)'].toFixed(2) + '%' : '-'}</td>
+                    <td>${formatValue(company['Market capitalization'], 'currency')}</td>
+                </tr>`;
+            });
+            document.querySelector('#top10ROE tbody').innerHTML = html;
+
+            // Top 10 by Revenue Growth
+            const top10Revenue = filteredData
+                .filter(d => d['Quarterly revenue growth (YoY)'])
+                .sort((a, b) => (b['Quarterly revenue growth (YoY)'] || 0) - (a['Quarterly revenue growth (YoY)'] || 0))
+                .slice(0, 10);
+
+            html = '';
+            top10Revenue.forEach((company, index) => {
+                html += `<tr>
+                    <td>${index + 1}</td>
+                    <td><strong>${company.Company}</strong></td>
+                    <td>${company.Company}</td>
+                    <td class="positive">${company['Quarterly revenue growth (YoY)'].toFixed(2)}%</td>
+                    <td>${company['Annual sales growth past 5 years'] ? company['Annual sales growth past 5 years'].toFixed(2) + '%' : '-'}</td>
+                    <td>${company['EPS growth this year'] ? company['EPS growth this year'].toFixed(2) + '%' : '-'}</td>
+                    <td>${formatValue(company['Market capitalization'], 'currency')}</td>
+                </tr>`;
+            });
+            document.querySelector('#top10Revenue tbody').innerHTML = html;
+
+            // Top 10 by Dividend Yield
+            const top10Dividend = filteredData
+                .filter(d => d['Dividend yield (annual)'])
+                .sort((a, b) => (b['Dividend yield (annual)'] || 0) - (a['Dividend yield (annual)'] || 0))
+                .slice(0, 10);
+
+            html = '';
+            top10Dividend.forEach((company, index) => {
+                html += `<tr>
+                    <td>${index + 1}</td>
+                    <td><strong>${company.Company}</strong></td>
+                    <td>${company.Company}</td>
+                    <td class="positive">${company['Dividend yield (annual)'].toFixed(2)}%</td>
+                    <td>${formatValue(company['Dividend (annual)'], 'currency')}</td>
+                    <td>${company['Price-to-Earnings (ttm)'] ? company['Price-to-Earnings (ttm)'].toFixed(2) : '-'}</td>
+                    <td>${formatValue(company['Market capitalization'], 'currency')}</td>
+                </tr>`;
+            });
+            document.querySelector('#top10Dividend tbody').innerHTML = html;
+        }
+
+        /**
+         * Create risk alerts
+         */
+        function createRiskAlerts() {
+            const alerts = [];
+
+            // High debt
+            const highDebt = filteredData
+                .filter(d => d['Total Debt to Equity (mrq)'] && d['Total Debt to Equity (mrq)'] > 2)
+                .slice(0, 3);
+
+            // Negative earnings
+            const negativeEarnings = filteredData
+                .filter(d => d['Income (ttm)'] && d['Income (ttm)'] < 0)
+                .slice(0, 3);
+
+            // High volatility
+            const highVolatility = filteredData
+                .filter(d => {
+                    const vol = d['Volatility (Week, Month)'];
+                    if (typeof vol === 'string') {
+                        return parseFloat(vol.split(' ')[0]) > 3;
+                    }
+                    return vol && vol > 3;
+                })
+                .slice(0, 3);
+
+            let html = '';
+
+            if (highDebt.length > 0) {
+                html += `<div class="risk-alert-card">
+                    <div class="risk-alert-title">⚠️ High Debt Companies</div>
+                    ${highDebt.map(d => `<div>${d.Company}: D/E ${d['Total Debt to Equity (mrq)'].toFixed(2)}</div>`).join('')}
+                </div>`;
+            }
+
+            if (negativeEarnings.length > 0) {
+                html += `<div class="risk-alert-card">
+                    <div class="risk-alert-title">❌ Negative Earnings</div>
+                    ${negativeEarnings.map(d => `<div>${d.Company}: ${formatValue(d['Income (ttm)'], 'currency')}</div>`).join('')}
+                </div>`;
+            }
+
+            if (highVolatility.length > 0) {
+                html += `<div class="risk-alert-card">
+                    <div class="risk-alert-title">📈 High Volatility</div>
+                    ${highVolatility.map(d => {
+                        const vol = typeof d['Volatility (Week, Month)'] === 'string' ? 
+                            d['Volatility (Week, Month)'].split(' ')[0] : 
+                            d['Volatility (Week, Month)'];
+                        return `<div>${d.Company}: ${vol}%</div>`;
+                    }).join('')}
+                </div>`;
+            }
+
+            document.getElementById('riskAlerts').innerHTML = html || '<p style="color: var(--text-secondary);">No major risks detected</p>';
+        }
+
+        /**
+         * Update entire dashboard
+         */
+        function updateDashboard() {
+            updateKPIs();
+            createMarketCapChart();
+            createPEChart();
+            createPBChart();
+            createPEGChart();
+            createROEvsROAChart();
+            createMarginChart();
+            createNetMarginChart();
+            createOperatingMarginChart();
+            createEPSGrowthChart();
+            createRevenueEarningsChart();
+            createFiveYearRevenueChart();
+            createLTGrowthChart();
+            createBetaChart();
+            createRSIChart();
+            createDistanceHighChart();
+            createVolatilityChart();
+            createRelativeVolumeChart();
+            createPerformanceTodayChart();
+            createWeeklyPerformanceChart();
+            createYearPerformanceChart();
+            createTop10Tables();
+            createRiskAlerts();
+        }
+
+        // ============================================
+        // EVENT LISTENERS & INTERACTIONS
+        // ============================================
+
+        function setupEventListeners() {
+            // Tab switching
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                    document.getElementById(tabName).classList.add('active');
+                });
+            });
+
+            // Search functionality
+            document.getElementById('searchBox').addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                filteredData = rawData.filter(d => 
+                    d.Company.toLowerCase().includes(searchTerm)
+                );
+                updateDashboard();
+            });
+
+            // Market cap filter
+            document.getElementById('marketCapFilter').addEventListener('change', function() {
+                const filter = this.value;
+                filteredData = rawData.filter(d => {
+                    const cap = d['Market capitalization'];
+                    if (!cap) return false;
+                    const capInB = cap / 1e9;
+                    
+                    switch(filter) {
+                        case 'mega': return capInB > 200;
+                        case 'large': return capInB > 20 && capInB <= 200;
+                        case 'mid': return capInB > 2 && capInB <= 20;
+                        case 'small': return capInB <= 2;
+                        default: return true;
+                    }
+                });
+                updateDashboard();
+            });
+
+            // Sort functionality
+            document.getElementById('sortSelect').addEventListener('change', function() {
+                const sort = this.value;
+                
+                switch(sort) {
+                    case 'marketCap':
+                        filteredData.sort((a, b) => (b['Market capitalization'] || 0) - (a['Market capitalization'] || 0));
+                        break;
+                    case 'pe':
+                        filteredData.sort((a, b) => {
+                            const aPE = a['Price-to-Earnings (ttm)'] || Infinity;
+                            const bPE = b['Price-to-Earnings (ttm)'] || Infinity;
+                            return aPE - bPE;
+                        });
+                        break;
+                    case 'roe':
+                        filteredData.sort((a, b) => (b['Return on Equity (ttm)'] || 0) - (a['Return on Equity (ttm)'] || 0));
+                        break;
+                    case 'dividend':
+                        filteredData.sort((a, b) => (b['Dividend yield (annual)'] || 0) - (a['Dividend yield (annual)'] || 0));
+                        break;
+                    case 'growth':
+                        filteredData.sort((a, b) => (b['Annual sales growth past 5 years'] || 0) - (a['Annual sales growth past 5 years'] || 0));
+                        break;
+                }
+                updateDashboard();
+            });
+
+            // Top gainers/losers
+            document.getElementById('topGainersBtn').addEventListener('click', function() {
+                filteredData = rawData
+                    .filter(d => d['Performance (Year)'] && d['Performance (Year)'] > 0)
+                    .sort((a, b) => (b['Performance (Year)'] || 0) - (a['Performance (Year)'] || 0))
+                    .slice(0, 50);
+                updateDashboard();
+            });
+
+            document.getElementById('topLosersBtn').addEventListener('click', function() {
+                filteredData = rawData
+                    .filter(d => d['Performance (Year)'])
+                    .sort((a, b) => (a['Performance (Year)'] || 0) - (b['Performance (Year)'] || 0))
+                    .slice(0, 50);
+                updateDashboard();
+            });
+
+            // Export to PDF
+            document.getElementById('exportBtn').addEventListener('click', function() {
+                const element = document.getElementById('dashboardContent');
+                const opt = {
+                    margin: 10,
+                    filename: 'financial_dashboard_' + new Date().toISOString().split('T')[0] + '.pdf',
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2 },
+                    jsPDF: { orientation: 'landscape', unit: 'mm', format: 'a4' }
+                };
+                html2pdf().set(opt).from(element).save();
+            });
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            // Dashboard starts with empty state
+        });
+    </script>
+</body>
+</html>
