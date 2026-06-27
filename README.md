@@ -1,7 +1,7 @@
 # 📊 AI-Powered Financial Analytics Dashboard
 
 <p align="center">
-  <img src="images/dashboard.png" alt="AI Financial Dashboard" width="100%">
+  <img src="fin2.png" alt="AI Financial Dashboard" width="100%">
 </p>
 
 An AI-powered financial analytics dashboard that transforms Excel and CSV financial datasets into interactive visualizations and actionable insights in real time.
