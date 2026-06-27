@@ -1,4 +1,4 @@
-# 📊 AI-Powered Financial Analytics Dashboard
+# 📊 AI Powered Financial Analytics Dashboard
 
 <p align="center">
   <img src="fin2.png" alt="AI Financial Dashboard" width="100%">
